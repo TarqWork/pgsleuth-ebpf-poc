@@ -1,0 +1,24 @@
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock.bak
+
+# eBPF build artifacts
+*.bpf.o
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+.obsidian/
+*.swp
+*.swo
+.claude/
+
+# Local env
+.env
+.env.*
+!.env.example

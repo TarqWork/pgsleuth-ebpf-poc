@@ -1,0 +1,7 @@
+# Build aliases. All commands assume execution inside the rust-dev
+# container (see ../pgsleuth/infra/docker/). Running these on the
+# host is unsupported.
+
+[alias]
+xtask = "run --package xtask --"
+build-ebpf = "build --package pgsleuth-ebpf --target bpfel-unknown-none -Z build-std=core --release"

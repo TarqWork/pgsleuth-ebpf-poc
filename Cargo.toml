@@ -1,0 +1,26 @@
+[workspace]
+resolver = "2"
+members = [
+    "pgsleuth-ebpf",
+    "pgsleuth-ebpf-common",
+    "pgsleuth-ebpf-loader",
+    "xtask",
+]
+# eBPF kernel crate has its own target/profile and is excluded
+# from the default set so plain `cargo check` in the host workspace
+# only touches userspace crates.
+default-members = [
+    "pgsleuth-ebpf-common",
+    "pgsleuth-ebpf-loader",
+    "xtask",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/TarqWork/pgsleuth-ebpf-poc"
+
+[profile.release]
+lto = true
+codegen-units = 1
