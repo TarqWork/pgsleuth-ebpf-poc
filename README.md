@@ -66,9 +66,9 @@ docker compose up --build
 ```
 
 This automatically:
-- Builds the eBPF program in `rust-dev` container
-- Loads and runs the eBPF program in `ebpf-feasibility` container  
-- Shares artifacts via `bpf-builds` volume
+- `rust-dev` runs the build script (`bash /workspace/build.sh ebpf`)
+- `ebpf-feasibility` attempts to load and run the eBPF program
+- Shares artifacts via `./ebpf-target` host directory mount
 
 **Monitor the process:**
 ```bash
@@ -89,16 +89,25 @@ cd ../pgsleuth/infra/docker
 docker compose run ebpf-feasibility
 ```
 
-**From pgsleuth-ebpf-poc directory:**
-```bash
-# Build eBPF program
-docker run --rm -v $(pwd):/workspace/source -v ebpf-builds:/workspace/target \
-  pgsleuth/rust-dev cargo build -Zbuild-std --target bpfel-unknown-none --release -p pgsleuth-ebpf
+### Using the Build Script
 
-# Load and run eBPF program  
-docker run --rm --cap-add=BPF --cap-add=PERFMON --cap-add=SYS_ADMIN \
-  -v ebpf-builds:/workspace/target -v /sys/fs/bpf:/sys/fs/bpf \
-  pgsleuth/ebpf-feasibility sh -c "mount -t bpf bpf /sys/fs/bpf && bpftool prog load bpfel-unknown-none/release/pgsleuth-ebpf /sys/fs/bpf/pgsleuth-ebpf"
+The `rust-dev` container includes a build script with multiple commands:
+
+```bash
+cd ../pgsleuth/infra/docker
+
+# Build eBPF only (default)
+docker compose run rust-dev bash /workspace/build.sh ebpf
+
+# Build everything (eBPF + loader + common)
+docker compose run rust-dev bash /workspace/build.sh all
+
+# Build specific components
+docker compose run rust-dev bash /workspace/build.sh loader
+docker compose run rust-dev bash /workspace/build.sh common
+
+# Clean artifacts
+docker compose run rust-dev bash /workspace/build.sh clean
 ```
 
 ### Manual Development
@@ -123,15 +132,15 @@ Exact service names are pinned by the POC plan, Step 3.
 
 **Short answer:** For the current simple eBPF build, xtask is optional overhead. Direct cargo works fine.
 
-**Current situation (Step 4):**
+**Direct cargo via Docker compose (current workflow)**
 ```bash
-# Direct cargo - simpler, works perfectly
-docker run --rm -v $(pwd):/workspace -w /workspace pgsleuth/rust-dev \
-  cargo build -Zbuild-std --target bpfel-unknown-none --release -p pgsleuth-ebpf
+# From pgsleuth/infra/docker directory:
+docker compose run rust-dev bash /workspace/build.sh ebpf
 
-# xtask - more verbose, same result
-docker run --rm -v $(pwd):/workspace -w /workspace pgsleuth/rust-dev \
-  cargo run --bin xtask -- build-ebpf
+# Or run cargo directly inside the container:
+docker compose exec rust-dev bash
+cd /workspace/source/pgsleuth-ebpf-poc
+cargo build -Zbuild-std --target bpfel-unknown-none --release -p pgsleuth-ebpf
 ```
 
 **Why xtask was added:**
@@ -167,7 +176,8 @@ Cmd::BuildAll => {
 
 ## Status
 
-✅ **Step 4 Complete** - Working eBPF kprobe attached to `do_sys_openat2`
-- eBPF program builds and loads successfully
-- Container infrastructure functional
-- Ready for Step 5 (Postgres integration)
+🔄 **Step 4 In Progress** - eBPF kprobe attached to `do_sys_openat2`
+- eBPF program **builds successfully** in Docker (`rust-dev` container)
+- Container infrastructure and build script functional
+- **Caveat:** eBPF load/verify step in `ebpf-feasibility` container not yet fully tested end-to-end
+- Ready for Step 5 (Postgres integration) once load is verified
