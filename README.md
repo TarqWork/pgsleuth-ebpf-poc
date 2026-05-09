@@ -35,7 +35,7 @@ The workspace `default-members` excludes `pgsleuth-ebpf`, so plain
 One-time setup — install rustup + stable Rust:
 
 ```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs  sh -s -- -y --default-toolchain stable --profile default
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile default
 source "$HOME/.cargo/env"
 rustup component add rustfmt clippy
 ```
@@ -67,12 +67,45 @@ docker compose up --build
 
 This automatically:
 - `rust-dev` runs the build script (`bash /workspace/build.sh ebpf`)
-- `ebpf-feasibility` attempts to load and run the eBPF program
+- `ebpf-feasibility` starts Postgres and waits for it to be ready
 - Shares artifacts via `./ebpf-target` host directory mount
 
 **Monitor the process:**
 ```bash
 docker compose logs -f
+```
+
+### Step 5+ Workflow: Postgres + eBPF
+
+**Start Postgres container:**
+```bash
+cd ../pgsleuth/infra/docker
+docker compose up ebpf-feasibility
+```
+
+This runs the modular setup:
+- `setup-postgres.sh` - Starts Postgres and waits for readiness
+- Container stays running for manual eBPF loading
+
+**Load eBPF program (after Postgres is ready):**
+```bash
+docker exec pgsleuth-ebpf-feasibility /workspace/load-ebpf.sh
+```
+
+**Connect to Postgres:**
+```bash
+docker exec -it pgsleuth-ebpf-feasibility psql -U postgres -h localhost
+```
+
+**Manual development workflow:**
+```bash
+# Get shell in running container
+docker exec -it pgsleuth-ebpf-feasibility bash
+
+# Inside container:
+ps -ef | grep postgres          # Check Postgres processes
+/workspace/load-ebpf.sh         # Load eBPF program
+psql -U postgres -h localhost    # Connect to Postgres
 ```
 
 ### Individual Commands
@@ -176,8 +209,27 @@ Cmd::BuildAll => {
 
 ## Status
 
-🔄 **Step 4 In Progress** - eBPF kprobe attached to `do_sys_openat2`
-- eBPF program **builds successfully** in Docker (`rust-dev` container)
-- Container infrastructure and build script functional
-- **Caveat:** eBPF load/verify step in `ebpf-feasibility` container not yet fully tested end-to-end
-- Ready for Step 5 (Postgres integration) once load is verified
+✅ **Step 4 complete** — eBPF kprobe attached to `do_sys_openat2`, built in
+`rust-dev`, loaded and verified in `ebpf-feasibility` (program ID 111, name
+`pgsleuth_ebpf`). Container infrastructure and build script functional.
+
+Next: Step 5 — swap the runtime container's base to `postgres:17-bookworm`
+and trace `pread64` from a real backend. See the plan doc for the full
+checkpoint list.
+
+## Capabilities
+
+The runtime container needs Linux capabilities to load and attach BPF
+programs. Two practical options:
+
+- **Easy / least surgery:** grant `CAP_SYS_ADMIN` alone. It implies the
+  others and is the path of least resistance for local feasibility work.
+  This is what makes ad-hoc `docker run` snippets shortest.
+- **Least privilege (kernel ≥ 5.8):** grant `CAP_BPF` + `CAP_PERFMON`.
+  More principled, but in practice we've also needed `CAP_SYS_ADMIN` for
+  some operations (e.g. mounting bpffs, certain map types) and may need
+  `CAP_NET_ADMIN` once we touch tracing helpers / network hooks.
+
+The compose file (`pgsleuth/infra/docker/docker-compose.yml`) currently
+grants **all of `BPF`, `PERFMON`, `NET_ADMIN`, `SYS_ADMIN`** — pragmatic
+for a feasibility POC. Tightening this is a Phase 5 concern, not now.
