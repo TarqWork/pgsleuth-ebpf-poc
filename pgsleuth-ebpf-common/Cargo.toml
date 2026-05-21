@@ -11,7 +11,8 @@ publish = false
 
 [features]
 default = ["user"]
-user = []
+user = ["dep:aya"]
 
 [dependencies]
 aya-ebpf-cty = "0.2"
+aya = { version = "0.13", default-features = false, optional = true }
