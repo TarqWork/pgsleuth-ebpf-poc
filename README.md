@@ -15,8 +15,13 @@ pgsleuth-ebpf-poc/
 ├── pgsleuth-ebpf/            # kernel-side eBPF program (no_std)
 ├── pgsleuth-ebpf-common/     # wire types shared with userspace
 ├── pgsleuth-ebpf-loader/     # userspace loader binary
+├── pgsleuth-pg-ext/          # Postgres extension (pgrx) — loader handshake
 └── xtask/                    # build orchestrator
 ```
+
+See `pgsleuth-pg-ext/README.md` for the extension's build and install
+flow — that crate has its own toolchain story (`cargo-pgrx` +
+`postgresql-server-dev-17`) and is Docker-only.
 
 ## Where things build
 
@@ -26,9 +31,11 @@ pgsleuth-ebpf-poc/
 | `pgsleuth-ebpf-loader`   | yes (cargo check/build) | yes (runtime target)      |
 | `xtask`                  | yes                     | yes                       |
 | `pgsleuth-ebpf` (kernel) | **no** (nightly + bpf target) | **yes**             |
+| `pgsleuth-pg-ext`        | **no** (pgrx + PG headers)    | **yes**             |
 
-The workspace `default-members` excludes `pgsleuth-ebpf`, so plain
-`cargo build` on the host stays away from the kernel crate.
+The workspace `default-members` excludes both `pgsleuth-ebpf` and
+`pgsleuth-pg-ext`, so plain `cargo build` on the host stays on the
+userspace crates only.
 
 ## Local dev (macOS host)
 

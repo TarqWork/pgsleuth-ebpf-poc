@@ -4,11 +4,14 @@ members = [
     "pgsleuth-ebpf",
     "pgsleuth-ebpf-common",
     "pgsleuth-ebpf-loader",
+    "pgsleuth-pg-ext",
     "xtask",
 ]
-# eBPF kernel crate has its own target/profile and is excluded
-# from the default set so plain `cargo check` in the host workspace
-# only touches userspace crates.
+# eBPF kernel crate and the Postgres extension crate both have build
+# requirements (bpfel target / pgrx + postgresql-server-dev-17) that the
+# host toolchain does not satisfy. They are excluded from
+# `default-members` so plain `cargo check` / `cargo build` from the
+# workspace root only touches the userspace Rust crates.
 default-members = [
     "pgsleuth-ebpf-common",
     "pgsleuth-ebpf-loader",
